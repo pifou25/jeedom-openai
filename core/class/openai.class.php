@@ -9,6 +9,35 @@ class openai extends eqLogic {
         'parameters' => array(),
     );
 
+    private static function getModelsConfig() {
+        $yamlFile = dirname(__FILE__) . '/../../data/openai_models.yaml';
+        if (!file_exists($yamlFile)) {
+            throw new Exception(__('Configuration file not found', __FILE__));
+        }
+        return yaml_parse_file($yamlFile);
+    }
+
+    public static function getAvailableModels() {
+        $config = self::getModelsConfig();
+        $models = array();
+        foreach ($config['models'] as $modelId => $modelData) {
+            $models[] = array(
+                'id' => $modelId,
+                'name' => $modelData['name'],
+                'description' => $modelData['description']
+            );
+        }
+        return $models;
+    }
+
+    private function getModelConfig($modelId) {
+        $config = self::getModelsConfig();
+        if (!isset($config['models'][$modelId])) {
+            throw new Exception(__('Model configuration not found', __FILE__));
+        }
+        return $config['models'][$modelId];
+    }
+
     public static function dependancy_info() {
         $return = array();
         $return['log'] = 'openai_dep';
@@ -23,6 +52,7 @@ class openai extends eqLogic {
 
     public function preInsert() {
         $this->setCategory('communication', 1);
+        $this->setConfiguration('model', 'gpt-3.5-turbo');
     }
 
     public function postSave() {
@@ -60,14 +90,88 @@ class openai extends eqLogic {
         }
     }
 
+    private function getJeedomContext() {
+        $context = array();
+        $includedObjects = $this->getConfiguration('included_objects', array());
+        
+        foreach ($includedObjects as $objectId) {
+            $object = jeeObject::byId($objectId);
+            if (!is_object($object)) continue;
+
+            $objectData = array(
+                'name' => $object->getName(),
+                'equipments' => array()
+            );
+
+            foreach ($object->getEqLogic() as $eqLogic) {
+                $eqData = array(
+                    'name' => $eqLogic->getName(),
+                    'info' => array()
+                );
+
+                foreach ($eqLogic->getCmd('info') as $cmd) {
+                    $eqData['info'][] = array(
+                        'name' => $cmd->getName(),
+                        'value' => $cmd->execCmd(),
+                        'unit' => $cmd->getUnite()
+                    );
+                }
+
+                if (!empty($eqData['info'])) {
+                    $objectData['equipments'][] = $eqData;
+                }
+            }
+
+            if (!empty($objectData['equipments'])) {
+                $context[] = $objectData;
+            }
+        }
+
+        return $context;
+    }
+
+    private function buildSystemPrompt($context) {
+        $systemPrompt = "You are a home automation assistant with access to the following information about the home:\n\n";
+        
+        foreach ($context as $object) {
+            $systemPrompt .= "Location: " . $object['name'] . "\n";
+            foreach ($object['equipments'] as $equipment) {
+                $systemPrompt .= "  Equipment: " . $equipment['name'] . "\n";
+                foreach ($equipment['info'] as $info) {
+                    $value = $info['value'];
+                    $unit = !empty($info['unit']) ? ' ' . $info['unit'] : '';
+                    $systemPrompt .= "    - " . $info['name'] . ": " . $value . $unit . "\n";
+                }
+            }
+            $systemPrompt .= "\n";
+        }
+        
+        $systemPrompt .= "Please use this information to provide relevant and contextual responses to questions about the home's status and automation.";
+        
+        return $systemPrompt;
+    }
+
     public function sendToOpenAI($prompt) {
         $apiKey = $this->getConfiguration('api_key');
+        $modelId = $this->getConfiguration('model');
+
         if (empty($apiKey)) {
             throw new Exception(__('API Key not configured', __FILE__));
         }
 
+        if (empty($modelId)) {
+            throw new Exception(__('Model not configured', __FILE__));
+        }
+
+        $modelConfig = $this->getModelConfig($modelId);
+        $apiUrl = $modelConfig['url'];
+
+        // Get Jeedom context and build system prompt
+        $context = $this->getJeedomContext();
+        $systemPrompt = $this->buildSystemPrompt($context);
+
         $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, 'https://api.openai.com/v1/chat/completions');
+        curl_setopt($ch, CURLOPT_URL, $apiUrl);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($ch, CURLOPT_POST, 1);
         curl_setopt($ch, CURLOPT_HTTPHEADER, array(
@@ -76,8 +180,12 @@ class openai extends eqLogic {
         ));
 
         $data = array(
-            'model' => 'gpt-3.5-turbo',
+            'model' => $modelId,
             'messages' => array(
+                array(
+                    'role' => 'system',
+                    'content' => $systemPrompt
+                ),
                 array(
                     'role' => 'user',
                     'content' => $prompt
@@ -101,6 +209,20 @@ class openai extends eqLogic {
             throw new Exception(__('Invalid response from OpenAI', __FILE__));
         }
     }
+
+    public static function getCompatibleMessageCommands() {
+        $return = array();
+        foreach (cmd::byTypeSubType('action', 'message') as $cmd) {
+            $eqLogic = $cmd->getEqLogic();
+            if ($eqLogic->getEqType_name() != 'openai') {
+                $return[] = array(
+                    'value' => $cmd->getId(),
+                    'text' => $eqLogic->getName() . ' - ' . $cmd->getName()
+                );
+            }
+        }
+        return $return;
+    }
 }
 
 class openaiCmd extends cmd {
@@ -123,6 +245,15 @@ class openaiCmd extends cmd {
                 $responseCmd = $eqLogic->getCmd(null, 'response');
                 if (is_object($responseCmd)) {
                     $responseCmd->event($response);
+                }
+
+                // Send response to configured output commands
+                $outputCommands = $eqLogic->getConfiguration('output_commands', array());
+                foreach ($outputCommands as $cmdId) {
+                    $cmd = cmd::byId($cmdId);
+                    if (is_object($cmd)) {
+                        $cmd->execute(array('message' => $response));
+                    }
                 }
             } catch (Exception $e) {
                 log::add('openai', 'error', $e->getMessage());

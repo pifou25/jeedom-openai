@@ -94,9 +94,46 @@ $eqLogics = eqLogic::byType($plugin->getId());
                             </div>
                         </div>
                         <div class="form-group">
-                            <label class="col-sm-3 control-label">{{Clé API OpenAI}}</label>
+                            <label class="col-sm-3 control-label">{{Modèle}}</label>
+                            <div class="col-sm-3">
+                                <select class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="model">
+                                    <?php
+                                    foreach (openai::getAvailableModels() as $model) {
+                                        echo '<option value="' . $model['id'] . '">' . $model['name'] . ' - ' . $model['description'] . '</option>';
+                                    }
+                                    ?>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">{{Clé API}}</label>
                             <div class="col-sm-3">
                                 <input type="text" class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="api_key" placeholder="sk-..."/>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">{{Objets à inclure}}</label>
+                            <div class="col-sm-6">
+                                <select class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="included_objects" multiple>
+                                    <?php
+                                    foreach (jeeObject::all() as $object) {
+                                        echo '<option value="' . $object->getId() . '">' . $object->getName() . '</option>';
+                                    }
+                                    ?>
+                                </select>
+                                <span class="help-block">{{Sélectionnez les objets dont vous souhaitez inclure les informations dans le prompt}}</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">{{Commandes de sortie}}</label>
+                            <div class="col-sm-6">
+                                <select class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="output_commands" multiple>
+                                    <?php
+                                    foreach (openai::getCompatibleMessageCommands() as $cmd) {
+                                        echo '<option value="' . $cmd['value'] . '">' . $cmd['text'] . '</option>';
+                                    }
+                                    ?>
+                                </select>
                             </div>
                         </div>
                     </fieldset>
