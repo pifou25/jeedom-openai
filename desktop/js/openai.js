@@ -2,15 +2,53 @@
 
 $("#table_cmd").sortable({axis: "y", cursor: "move", items: ".cmd", placeholder: "ui-state-highlight", tolerance: "intersect", forcePlaceholderSize: true});
 
+// Function to update model list
+function updateModelList() {
+    var apiKey = $('.eqLogicAttr[data-l1key=configuration][data-l2key=api_key]').value();
+    var apiUrl = $('.eqLogicAttr[data-l1key=configuration][data-l2key=api_url]').value();
+    
+    if (apiKey && apiUrl) {
+        $.ajax({
+            type: 'POST',
+            url: 'plugins/openai/core/ajax/openai.ajax.php',
+            data: {
+                action: 'getModels',
+                id: $('.eqLogicAttr[data-l1key=id]').value()
+            },
+            dataType: 'json',
+            success: function(data) {
+                if (data.state === 'ok') {
+                    var select = $('.eqLogicAttr[data-l1key=configuration][data-l2key=model]');
+                    select.empty();
+                    
+                    data.result.forEach(function(model) {
+                        select.append($('<option>', {
+                            value: model.id,
+                            text: model.name
+                        }));
+                    });
+                } else {
+                    $('#div_alert').showAlert({message: data.result, level: 'danger'});
+                }
+            }
+        });
+    }
+}
+
+// Update models when API key or URL changes
 $('.eqLogicAttr[data-l1key=configuration][data-l2key=api_key]').on('change', function () {
     if ($(this).value() === '') {
         $('#div_alert').showAlert({message: '{{La clé API est obligatoire}}', level: 'danger'});
+    } else {
+        updateModelList();
     }
 });
 
 $('.eqLogicAttr[data-l1key=configuration][data-l2key=api_url]').on('change', function () {
     if ($(this).value() === '') {
         $('#div_alert').showAlert({message: '{{L\'URL de l\'API est obligatoire}}', level: 'danger'});
+    } else {
+        updateModelList();
     }
 });
 
@@ -67,6 +105,9 @@ $('.eqLogicDisplayCard').on('click', function() {
     } else {
         addSystemPrompt();
     }
+    
+    // Update model list when loading equipment
+    updateModelList();
 });
 
 function addCmdToTable(_cmd) {

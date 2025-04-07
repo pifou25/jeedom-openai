@@ -66,6 +66,73 @@ class openai extends eqLogic {
         }
     }
 
+    public function getAvailableModels() {
+        $apiKey = $this->getConfiguration('api_key');
+        $apiUrl = $this->getConfiguration('api_url');
+
+        if (empty($apiKey) || empty($apiUrl)) {
+            return array();
+        }
+
+        // Handle different API providers
+        if (strpos($apiUrl, 'api.openai.com') !== false) {
+            return $this->getOpenAIModels($apiKey);
+        } else if (strpos($apiUrl, 'api.anthropic.com') !== false) {
+            return $this->getAnthropicModels($apiKey);
+        } else if (strpos($apiUrl, 'api.mistral.ai') !== false) {
+            return $this->getMistralModels($apiKey);
+        }
+
+        return array();
+    }
+
+    private function getOpenAIModels($apiKey) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, 'https://api.openai.com/v1/models');
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+            'Authorization: Bearer ' . $apiKey
+        ));
+
+        $response = curl_exec($ch);
+        if (curl_errno($ch)) {
+            log::add('openai', 'error', 'Error fetching OpenAI models: ' . curl_error($ch));
+            return array();
+        }
+        curl_close($ch);
+
+        $data = json_decode($response, true);
+        $models = array();
+
+        if (isset($data['data'])) {
+            foreach ($data['data'] as $model) {
+                if (strpos($model['id'], 'gpt') !== false) {
+                    $models[] = array(
+                        'id' => $model['id'],
+                        'name' => $model['id']
+                    );
+                }
+            }
+        }
+
+        return $models;
+    }
+
+    private function getAnthropicModels($apiKey) {
+        return array(
+            array('id' => 'claude-2', 'name' => 'Claude 2'),
+            array('id' => 'claude-instant-1', 'name' => 'Claude Instant')
+        );
+    }
+
+    private function getMistralModels($apiKey) {
+        return array(
+            array('id' => 'mistral-tiny', 'name' => 'Mistral Tiny'),
+            array('id' => 'mistral-small', 'name' => 'Mistral Small'),
+            array('id' => 'mistral-medium', 'name' => 'Mistral Medium')
+        );
+    }
+
     public function sendToOpenAI($prompt) {
         $apiKey = $this->getConfiguration('api_key');
         $apiUrl = $this->getConfiguration('api_url');
