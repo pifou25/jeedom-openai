@@ -114,7 +114,9 @@ $eqLogics = eqLogic::byType($plugin->getId());
                         <div class="form-group">
                             <label class="col-sm-3 control-label">{{Modèle}}</label>
                             <div class="col-sm-3">
-                                <input type="text" class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="model" placeholder="gpt-3.5-turbo"/>
+                                <select class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="model">
+                                    <!-- Will be populated dynamically -->
+                                </select>
                             </div>
                         </div>
                         <div class="form-group">
