@@ -112,6 +112,23 @@ $eqLogics = eqLogic::byType($plugin->getId());
                             </div>
                         </div>
                         <div class="form-group">
+                            <label class="col-sm-3 control-label">{{Modèle}}</label>
+                            <div class="col-sm-3">
+                                <input type="text" class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="model" placeholder="gpt-3.5-turbo"/>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">{{Prompts système}}</label>
+                            <div class="col-sm-6">
+                                <div id="div_systemPrompts">
+                                    <?php
+                                    // This will be populated by JavaScript
+                                    ?>
+                                </div>
+                                <a class="btn btn-success btn-sm" id="bt_addSystemPrompt"><i class="fas fa-plus-circle"></i> {{Ajouter un prompt système}}</a>
+                            </div>
+                        </div>
+                        <div class="form-group">
                             <label class="col-sm-3 control-label">{{Objets à inclure}}</label>
                             <div class="col-sm-6">
                                 <select class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="included_objects" multiple>

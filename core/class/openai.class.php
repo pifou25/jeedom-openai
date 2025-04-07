@@ -52,7 +52,12 @@ class openai extends eqLogic {
 
     public function preInsert() {
         $this->setCategory('communication', 1);
+        // Set default values for new instances
+        $this->setConfiguration('api_url', 'https://api.openai.com/v1/chat/completions');
         $this->setConfiguration('model', 'gpt-3.5-turbo');
+        $this->setConfiguration('system_prompts', array(
+            'You are a helpful AI assistant. Please provide clear and concise responses.'
+        ));
     }
 
     public function postSave() {
@@ -153,7 +158,9 @@ class openai extends eqLogic {
 
     public function sendToOpenAI($prompt) {
         $apiKey = $this->getConfiguration('api_key');
-        $modelId = $this->getConfiguration('model');
+        $apiUrl = $this->getConfiguration('api_url');
+        $model = $this->getConfiguration('model');
+        $systemPrompts = $this->getConfiguration('system_prompts', array());
 
         if (empty($apiKey)) {
             throw new Exception(__('API Key not configured', __FILE__));
@@ -178,6 +185,24 @@ class openai extends eqLogic {
             'Content-Type: application/json',
             'Authorization: Bearer ' . $apiKey
         ));
+
+        $messages = array();
+        
+        // Add system prompts
+        foreach ($systemPrompts as $systemPrompt) {
+            if (!empty($systemPrompt)) {
+                $messages[] = array(
+                    'role' => 'system',
+                    'content' => $systemPrompt
+                );
+            }
+        }
+
+        // Add user prompt
+        $messages[] = array(
+            'role' => 'user',
+            'content' => $prompt
+        );
 
         $data = array(
             'model' => $modelId,
