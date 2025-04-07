@@ -8,6 +8,67 @@ $('.eqLogicAttr[data-l1key=configuration][data-l2key=api_key]').on('change', fun
     }
 });
 
+$('.eqLogicAttr[data-l1key=configuration][data-l2key=api_url]').on('change', function () {
+    if ($(this).value() === '') {
+        $('#div_alert').showAlert({message: '{{L\'URL de l\'API est obligatoire}}', level: 'danger'});
+    }
+});
+
+$('.eqLogicAttr[data-l1key=configuration][data-l2key=model]').on('change', function () {
+    if ($(this).value() === '') {
+        $('#div_alert').showAlert({message: '{{Le modèle est obligatoire}}', level: 'danger'});
+    }
+});
+
+$('#bt_addSystemPrompt').on('click', function() {
+    addSystemPrompt();
+});
+
+function addSystemPrompt(value = '') {
+    var div = '<div class="input-group" style="margin-bottom:5px;">';
+    div += '<input class="form-control roundedLeft systemPrompt" value="' + value + '" />';
+    div += '<span class="input-group-btn">';
+    div += '<a class="btn btn-danger btn-sm roundedRight bt_removeSystemPrompt"><i class="fas fa-minus-circle"></i></a>';
+    div += '</span>';
+    div += '</div>';
+    $('#div_systemPrompts').append(div);
+}
+
+$('body').on('click', '.bt_removeSystemPrompt', function() {
+    $(this).closest('.input-group').remove();
+});
+
+// Save system prompts to configuration when saving equipment
+$('.eqLogicAction[data-action=save]').on('click', function() {
+    var systemPrompts = [];
+    $('.systemPrompt').each(function() {
+        var value = $(this).val();
+        if (value !== '') {
+            systemPrompts.push(value);
+        }
+    });
+    $('.eqLogicAttr[data-l1key=configuration][data-l2key=system_prompts]').val(JSON.stringify(systemPrompts));
+});
+
+// Load system prompts when loading equipment
+$('.eqLogicDisplayCard').on('click', function() {
+    var systemPrompts = $('.eqLogicAttr[data-l1key=configuration][data-l2key=system_prompts]').val();
+    $('#div_systemPrompts').empty();
+    if (systemPrompts) {
+        try {
+            var prompts = JSON.parse(systemPrompts);
+            prompts.forEach(function(prompt) {
+                addSystemPrompt(prompt);
+            });
+        } catch (e) {
+            console.error('Error parsing system prompts:', e);
+            addSystemPrompt();
+        }
+    } else {
+        addSystemPrompt();
+    }
+});
+
 function addCmdToTable(_cmd) {
     if (!isset(_cmd)) {
         var _cmd = {configuration: {}};

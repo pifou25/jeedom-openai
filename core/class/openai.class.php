@@ -23,6 +23,12 @@ class openai extends eqLogic {
 
     public function preInsert() {
         $this->setCategory('communication', 1);
+        // Set default values for new instances
+        $this->setConfiguration('api_url', 'https://api.openai.com/v1/chat/completions');
+        $this->setConfiguration('model', 'gpt-3.5-turbo');
+        $this->setConfiguration('system_prompts', array(
+            'You are a helpful AI assistant. Please provide clear and concise responses.'
+        ));
     }
 
     public function postSave() {
@@ -62,12 +68,24 @@ class openai extends eqLogic {
 
     public function sendToOpenAI($prompt) {
         $apiKey = $this->getConfiguration('api_key');
+        $apiUrl = $this->getConfiguration('api_url');
+        $model = $this->getConfiguration('model');
+        $systemPrompts = $this->getConfiguration('system_prompts', array());
+
         if (empty($apiKey)) {
             throw new Exception(__('API Key not configured', __FILE__));
         }
 
+        if (empty($apiUrl)) {
+            throw new Exception(__('API URL not configured', __FILE__));
+        }
+
+        if (empty($model)) {
+            throw new Exception(__('Model not configured', __FILE__));
+        }
+
         $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, 'https://api.openai.com/v1/chat/completions');
+        curl_setopt($ch, CURLOPT_URL, $apiUrl);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($ch, CURLOPT_POST, 1);
         curl_setopt($ch, CURLOPT_HTTPHEADER, array(
@@ -75,14 +93,27 @@ class openai extends eqLogic {
             'Authorization: Bearer ' . $apiKey
         ));
 
+        $messages = array();
+        
+        // Add system prompts
+        foreach ($systemPrompts as $systemPrompt) {
+            if (!empty($systemPrompt)) {
+                $messages[] = array(
+                    'role' => 'system',
+                    'content' => $systemPrompt
+                );
+            }
+        }
+
+        // Add user prompt
+        $messages[] = array(
+            'role' => 'user',
+            'content' => $prompt
+        );
+
         $data = array(
-            'model' => 'gpt-3.5-turbo',
-            'messages' => array(
-                array(
-                    'role' => 'user',
-                    'content' => $prompt
-                )
-            )
+            'model' => $model,
+            'messages' => $messages
         );
 
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
