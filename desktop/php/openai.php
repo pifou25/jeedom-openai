@@ -6,10 +6,10 @@ $plugin = plugin::byId('openai');
 sendVarToJS('eqType', $plugin->getId());
 $eqLogics = eqLogic::byType($plugin->getId());
 
-// Load YAML configuration
-$yamlConfig = yaml_parse_file(dirname(__FILE__) . '/../../data/openai_models.yaml');
+// Load JSON configuration
+$jsonConfig = json_decode(file_get_contents(dirname(__FILE__) . '/../../plugin_info/openai_models.json'), true);
+ 
 ?>
-
 <div class="row row-overflow">
     <div class="col-xs-12 eqLogicThumbnailDisplay">
         <legend><i class="fas fa-cog"></i> {{Gestion}}</legend>
@@ -101,7 +101,7 @@ $yamlConfig = yaml_parse_file(dirname(__FILE__) . '/../../data/openai_models.yam
                             <div class="col-sm-3">
                                 <select class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="implementation">
                                     <?php
-                                    foreach ($yamlConfig['models'] as $modelId => $modelData) {
+                                    foreach ($jsonConfig['models'] as $modelId => $modelData) {
                                         echo '<option value="' . $modelId . '" data-url="' . $modelData['url'] . '">' . $modelData['name'] . '</option>';
                                     }
                                     ?>

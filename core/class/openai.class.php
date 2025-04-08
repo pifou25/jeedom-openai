@@ -163,7 +163,7 @@ class openai extends eqLogic {
         $apiUrl = $this->getConfiguration('api_url');
 
         if (empty($apiKey) || empty($apiUrl)) {
-            return $this->getModelsFromYaml($implementation);
+            return $this->getModelsFromJson($implementation);
         }
 
         // Try to get models from API first
@@ -173,16 +173,16 @@ class openai extends eqLogic {
         }
 
         // Fallback to YAML configuration
-        return $this->getModelsFromYaml($implementation);
+        return $this->getModelsFromJson($implementation);
     }
 
-    private function getModelsFromYaml($implementation) {
-        $yamlFile = dirname(__FILE__) . '/../../data/openai_models.yaml';
-        if (!file_exists($yamlFile)) {
+    private function getModelsFromJson($implementation) {
+        $jsonFile = dirname(__FILE__) . '/../../plugin_info/openai_models.json';
+        if (!file_exists($jsonFile)) {
             return array();
         }
 
-        $config = yaml_parse_file($yamlFile);
+        $config = json_decode(file_get_contents($jsonFile), true);
         if (!isset($config['models'][$implementation])) {
             return array();
         }
