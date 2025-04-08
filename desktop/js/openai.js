@@ -4,6 +4,7 @@ $("#table_cmd").sortable({axis: "y", cursor: "move", items: ".cmd", placeholder:
 
 // Function to update model list
 function updateModelList() {
+    var implementation = $('.eqLogicAttr[data-l1key=configuration][data-l2key=implementation]').value();
     var apiKey = $('.eqLogicAttr[data-l1key=configuration][data-l2key=api_key]').value();
     var apiUrl = $('.eqLogicAttr[data-l1key=configuration][data-l2key=api_url]').value();
     
@@ -13,7 +14,8 @@ function updateModelList() {
             url: 'plugins/openai/core/ajax/openai.ajax.php',
             data: {
                 action: 'getModels',
-                id: $('.eqLogicAttr[data-l1key=id]').value()
+                id: $('.eqLogicAttr[data-l1key=id]').value(),
+                implementation: implementation
             },
             dataType: 'json',
             success: function(data) {
@@ -35,18 +37,18 @@ function updateModelList() {
     }
 }
 
-// Update models when API key or URL changes
+// Update API URL when implementation changes
+$('.eqLogicAttr[data-l1key=configuration][data-l2key=implementation]').on('change', function () {
+    var selectedOption = $(this).find('option:selected');
+    var apiUrl = selectedOption.data('url');
+    $('.eqLogicAttr[data-l1key=configuration][data-l2key=api_url]').value(apiUrl);
+    updateModelList();
+});
+
+// Update models when API key changes
 $('.eqLogicAttr[data-l1key=configuration][data-l2key=api_key]').on('change', function () {
     if ($(this).value() === '') {
         $('#div_alert').showAlert({message: '{{La clé API est obligatoire}}', level: 'danger'});
-    } else {
-        updateModelList();
-    }
-});
-
-$('.eqLogicAttr[data-l1key=configuration][data-l2key=api_url]').on('change', function () {
-    if ($(this).value() === '') {
-        $('#div_alert').showAlert({message: '{{L\'URL de l\'API est obligatoire}}', level: 'danger'});
     } else {
         updateModelList();
     }
