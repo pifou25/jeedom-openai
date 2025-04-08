@@ -5,6 +5,9 @@ if (!isConnect('admin')) {
 $plugin = plugin::byId('openai');
 sendVarToJS('eqType', $plugin->getId());
 $eqLogics = eqLogic::byType($plugin->getId());
+
+// Load YAML configuration
+$yamlConfig = yaml_parse_file(dirname(__FILE__) . '/../../data/openai_models.yaml');
 ?>
 
 <div class="row row-overflow">
@@ -94,9 +97,21 @@ $eqLogics = eqLogic::byType($plugin->getId());
                             </div>
                         </div>
                         <div class="form-group">
+                            <label class="col-sm-3 control-label">{{Implementation}}</label>
+                            <div class="col-sm-3">
+                                <select class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="implementation">
+                                    <?php
+                                    foreach ($yamlConfig['models'] as $modelId => $modelData) {
+                                        echo '<option value="' . $modelId . '" data-url="' . $modelData['url'] . '">' . $modelData['name'] . '</option>';
+                                    }
+                                    ?>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
                             <label class="col-sm-3 control-label">{{URL de l'API}}</label>
                             <div class="col-sm-3">
-                                <input type="text" class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="api_url" placeholder="https://api.openai.com/v1/chat/completions"/>
+                                <input type="text" class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="api_url" placeholder="https://api.openai.com/v1/chat/completions" readonly/>
                             </div>
                         </div>
                         <div class="form-group">

@@ -24,6 +24,7 @@ class openai extends eqLogic {
     public function preInsert() {
         $this->setCategory('communication', 1);
         // Set default values for new instances
+        $this->setConfiguration('implementation', 'gpt-3.5-turbo');
         $this->setConfiguration('api_url', 'https://api.openai.com/v1/chat/completions');
         $this->setConfiguration('model', 'gpt-3.5-turbo');
         $this->setConfiguration('system_prompts', array(
@@ -67,22 +68,55 @@ class openai extends eqLogic {
     }
 
     public function getAvailableModels() {
+        $implementation = $this->getConfiguration('implementation');
         $apiKey = $this->getConfiguration('api_key');
         $apiUrl = $this->getConfiguration('api_url');
 
         if (empty($apiKey) || empty($apiUrl)) {
+            return $this->getModelsFromYaml($implementation);
+        }
+
+        // Try to get models from API first
+        $apiModels = $this->getModelsFromApi($apiKey, $apiUrl);
+        if (!empty($apiModels)) {
+            return $apiModels;
+        }
+
+        // Fallback to YAML configuration
+        return $this->getModelsFromYaml($implementation);
+    }
+
+    private function getModelsFromYaml($implementation) {
+        $yamlFile = dirname(__FILE__) . '/../../data/openai_models.yaml';
+        if (!file_exists($yamlFile)) {
             return array();
         }
 
-        // Handle different API providers
-        if (strpos($apiUrl, 'api.openai.com') !== false) {
-            return $this->getOpenAIModels($apiKey);
-        } else if (strpos($apiUrl, 'api.anthropic.com') !== false) {
-            return $this->getAnthropicModels($apiKey);
-        } else if (strpos($apiUrl, 'api.mistral.ai') !== false) {
-            return $this->getMistralModels($apiKey);
+        $config = yaml_parse_file($yamlFile);
+        if (!isset($config['models'][$implementation])) {
+            return array();
         }
 
+        $modelData = $config['models'][$implementation];
+        if (!isset($modelData['models'])) {
+            return array(array(
+                'id' => $implementation,
+                'name' => $modelData['name']
+            ));
+        }
+
+        return array_map(function($model) {
+            return array(
+                'id' => $model,
+                'name' => $model
+            );
+        }, $modelData['models']);
+    }
+
+    private function getModelsFromApi($apiKey, $apiUrl) {
+        if (strpos($apiUrl, 'api.openai.com') !== false) {
+            return $this->getOpenAIModels($apiKey);
+        }
         return array();
     }
 
@@ -116,21 +150,6 @@ class openai extends eqLogic {
         }
 
         return $models;
-    }
-
-    private function getAnthropicModels($apiKey) {
-        return array(
-            array('id' => 'claude-2', 'name' => 'Claude 2'),
-            array('id' => 'claude-instant-1', 'name' => 'Claude Instant')
-        );
-    }
-
-    private function getMistralModels($apiKey) {
-        return array(
-            array('id' => 'mistral-tiny', 'name' => 'Mistral Tiny'),
-            array('id' => 'mistral-small', 'name' => 'Mistral Small'),
-            array('id' => 'mistral-medium', 'name' => 'Mistral Medium')
-        );
     }
 
     public function sendToOpenAI($prompt) {
