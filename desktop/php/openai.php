@@ -5,8 +5,11 @@ if (!isConnect('admin')) {
 $plugin = plugin::byId('openai');
 sendVarToJS('eqType', $plugin->getId());
 $eqLogics = eqLogic::byType($plugin->getId());
-?>
 
+// Load JSON configuration
+$jsonConfig = json_decode(file_get_contents(dirname(__FILE__) . '/../../plugin_info/openai_models.json'), true);
+ 
+?>
 <div class="row row-overflow">
     <div class="col-xs-12 eqLogicThumbnailDisplay">
         <legend><i class="fas fa-cog"></i> {{Gestion}}</legend>
@@ -94,9 +97,21 @@ $eqLogics = eqLogic::byType($plugin->getId());
                             </div>
                         </div>
                         <div class="form-group">
+                            <label class="col-sm-3 control-label">{{Implementation}}</label>
+                            <div class="col-sm-3">
+                                <select class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="implementation">
+                                    <?php
+                                    foreach ($jsonConfig['models'] as $modelId => $modelData) {
+                                        echo '<option value="' . $modelId . '" data-url="' . $modelData['url'] . '">' . $modelData['name'] . '</option>';
+                                    }
+                                    ?>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
                             <label class="col-sm-3 control-label">{{URL de l'API}}</label>
                             <div class="col-sm-3">
-                                <input type="text" class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="api_url" placeholder="https://api.openai.com/v1/chat/completions"/>
+                                <input type="text" class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="api_url" placeholder="https://api.openai.com/v1/chat/completions" readonly/>
                             </div>
                         </div>
                         <div class="form-group">
@@ -108,7 +123,9 @@ $eqLogics = eqLogic::byType($plugin->getId());
                         <div class="form-group">
                             <label class="col-sm-3 control-label">{{Modèle}}</label>
                             <div class="col-sm-3">
-                                <input type="text" class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="model" placeholder="gpt-3.5-turbo"/>
+                                <select class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="model">
+                                    <!-- Will be populated dynamically -->
+                                </select>
                             </div>
                         </div>
                         <div class="form-group">

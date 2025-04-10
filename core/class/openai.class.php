@@ -24,6 +24,7 @@ class openai extends eqLogic {
     public function preInsert() {
         $this->setCategory('communication', 1);
         // Set default values for new instances
+        $this->setConfiguration('implementation', 'gpt-3.5-turbo');
         $this->setConfiguration('api_url', 'https://api.openai.com/v1/chat/completions');
         $this->setConfiguration('model', 'gpt-3.5-turbo');
         $this->setConfiguration('system_prompts', array(
@@ -64,6 +65,91 @@ class openai extends eqLogic {
             $sendPrompt->setSubType('message');
             $sendPrompt->save();
         }
+    }
+
+    public function getAvailableModels() {
+        $implementation = $this->getConfiguration('implementation');
+        $apiKey = $this->getConfiguration('api_key');
+        $apiUrl = $this->getConfiguration('api_url');
+
+        if (empty($apiKey) || empty($apiUrl)) {
+            return $this->getModelsFromJson($implementation);
+        }
+
+        // Try to get models from API first
+        $apiModels = $this->getModelsFromApi($apiKey, $apiUrl);
+        if (!empty($apiModels)) {
+            return $apiModels;
+        }
+
+        // Fallback to YAML configuration
+        return $this->getModelsFromJson($implementation);
+    }
+
+    private function getModelsFromJson($implementation) {
+        $jsonFile = dirname(__FILE__) . '/../../plugin_info/openai_models.json';
+        if (!file_exists($jsonFile)) {
+            return array();
+        }
+
+        $config = json_decode(file_get_contents($jsonFile), true);
+        if (!isset($config['models'][$implementation])) {
+            return array();
+        }
+
+        $modelData = $config['models'][$implementation];
+        if (!isset($modelData['models'])) {
+            return array(array(
+                'id' => $implementation,
+                'name' => $modelData['name']
+            ));
+        }
+
+        return array_map(function($model) {
+            return array(
+                'id' => $model,
+                'name' => $model
+            );
+        }, $modelData['models']);
+    }
+
+    private function getModelsFromApi($apiKey, $apiUrl) {
+        if (strpos($apiUrl, 'api.openai.com') !== false) {
+            return $this->getOpenAIModels($apiKey);
+        }
+        return array();
+    }
+
+    private function getOpenAIModels($apiKey) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, 'https://api.openai.com/v1/models');
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+            'Authorization: Bearer ' . $apiKey
+        ));
+
+        $response = curl_exec($ch);
+        if (curl_errno($ch)) {
+            log::add('openai', 'error', 'Error fetching OpenAI models: ' . curl_error($ch));
+            return array();
+        }
+        curl_close($ch);
+
+        $data = json_decode($response, true);
+        $models = array();
+
+        if (isset($data['data'])) {
+            foreach ($data['data'] as $model) {
+                if (strpos($model['id'], 'gpt') !== false) {
+                    $models[] = array(
+                        'id' => $model['id'],
+                        'name' => $model['id']
+                    );
+                }
+            }
+        }
+
+        return $models;
     }
 
     public function sendToOpenAI($prompt) {

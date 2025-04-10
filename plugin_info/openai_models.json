@@ -1,0 +1,53 @@
+{
+  "models": {
+    "gpt-4": {
+      "name": "GPT-4",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "description": "Most capable GPT model for complex tasks",
+      "models": [
+        "gpt-4",
+        "gpt-4-32k",
+        "gpt-4-0613",
+        "gpt-4-32k-0613"
+      ]
+    },
+    "gpt-4-turbo": {
+      "name": "GPT-4 Turbo",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "description": "More capable, cost-effective and with newer knowledge",
+      "models": [
+        "gpt-4-1106-preview",
+        "gpt-4-vision-preview"
+      ]
+    },
+    "gpt-3.5-turbo": {
+      "name": "GPT-3.5 Turbo",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "description": "Good balance between capability and cost",
+      "models": [
+        "gpt-3.5-turbo",
+        "gpt-3.5-turbo-16k",
+        "gpt-3.5-turbo-1106"
+      ]
+    },
+    "claude-2": {
+      "name": "Claude 2",
+      "url": "https://api.anthropic.com/v1/complete",
+      "description": "Anthropic's most capable model",
+      "models": [
+        "claude-2",
+        "claude-instant-1"
+      ]
+    },
+    "mistral": {
+      "name": "Mistral AI",
+      "url": "https://api.mistral.ai/v1/chat/completions",
+      "description": "Mistral French capable IA",
+      "models": [
+        "mistral-tiny",
+        "mistral-small",
+        "mistral-medium"
+      ]
+    }
+  }
+}
