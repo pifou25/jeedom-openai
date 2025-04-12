@@ -2,64 +2,79 @@
 
 $("#table_cmd").sortable({axis: "y", cursor: "move", items: ".cmd", placeholder: "ui-state-highlight", tolerance: "intersect", forcePlaceholderSize: true});
 
-// Function to update model list
-function updateModelList() {
-    var implementation = $('.eqLogicAttr[data-l1key=configuration][data-l2key=implementation]').value();
-    var apiKey = $('.eqLogicAttr[data-l1key=configuration][data-l2key=api_key]').value();
-    var apiUrl = $('.eqLogicAttr[data-l1key=configuration][data-l2key=api_url]').value();
-    
-    if (apiKey && apiUrl) {
-        $.ajax({
-            type: 'POST',
-            url: 'plugins/openai/core/ajax/openai.ajax.php',
-            data: {
-                action: 'getModels',
-                id: $('.eqLogicAttr[data-l1key=id]').value(),
-                implementation: implementation
-            },
-            dataType: 'json',
-            success: function(data) {
-                if (data.state === 'ok') {
-                    var select = $('.eqLogicAttr[data-l1key=configuration][data-l2key=model]');
-                    select.empty();
-                    
-                    data.result.forEach(function(model) {
-                        select.append($('<option>', {
-                            value: model.id,
-                            text: model.name
-                        }));
-                    });
-                } else {
-                    $('#div_alert').showAlert({message: data.result, level: 'danger'});
-                }
-            }
+document.addEventListener('DOMContentLoaded', initializeSelectOptions);
+
+// Function to initialize the select options for implementation and model
+function initializeSelectOptions() {
+    console.debug('openai.js loaded');
+    // Populate the "Implementation" select
+    const implementationSelect = document.querySelector('select[data-l2key="implementation"]');
+
+    if (typeof jsonConfig !== 'undefined' && jsonConfig.openapis) {
+        // Clear existing options
+        implementationSelect.innerHTML = '';
+
+        // Populate the "Implementation" select
+        Object.entries(jsonConfig.openapis).forEach(([modelId, modelData]) => {
+            const option = document.createElement('option');
+            option.value = modelId;
+            option.textContent = modelData.name;
+            option.dataset.url = modelData.url;
+            implementationSelect.appendChild(option);
         });
+
+        // Update the API URL input when the "Implementation" select changes
+        implementationSelect.addEventListener('change', updateModelSelect);
+
+        // Trigger the change event to set the initial API URL
+        implementationSelect.dispatchEvent(new Event('change'));
+    } else {
+        // If no implementations are available, disable the select and set a placeholder
+        implementationSelect.disabled = true;
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'No implementations available, check openai_models.json';
+        implementationSelect.appendChild(option);
     }
 }
 
-// Update API URL when implementation changes
-$('.eqLogicAttr[data-l1key=configuration][data-l2key=implementation]').on('change', function () {
-    var selectedOption = $(this).find('option:selected');
-    var apiUrl = selectedOption.data('url');
-    $('.eqLogicAttr[data-l1key=configuration][data-l2key=api_url]').value(apiUrl);
-    updateModelList();
-});
-
-// Update models when API key changes
-$('.eqLogicAttr[data-l1key=configuration][data-l2key=api_key]').on('change', function () {
-    if ($(this).value() === '') {
-        $('#div_alert').showAlert({message: '{{La clé API est obligatoire}}', level: 'danger'});
-    } else {
-        updateModelList();
+// Function to update the model select based on the selected implementation
+function updateModelSelect() {
+    const implementationSelect = document.querySelector('select[data-l2key="implementation"]');
+    const apiUrlInput = document.querySelector('input[data-l2key="api_url"]');
+    const modelSelect = document.querySelector('select[data-l2key="model"]');
+    // Clear existing options
+    modelSelect.innerHTML = '';
+    const selectedOption = implementationSelect.options[implementationSelect.selectedIndex];
+    if(!selectedOption) {
+        return;
     }
-});
+    console.debug('Selected implementation:', selectedOption.value);
+    // Set the API URL input value based on the selected implementation
+    apiUrlInput.value = selectedOption.dataset.url || '';
 
-$('.eqLogicAttr[data-l1key=configuration][data-l2key=model]').on('change', function () {
-    if ($(this).value() === '') {
-        $('#div_alert').showAlert({message: '{{Le modèle est obligatoire}}', level: 'danger'});
-    }
-});
+    // Populate the "Model" select with available models
+    Object.entries(jsonConfig.openapis).forEach(([modelId, modelData]) => {
+        if(modelId == selectedOption.value) {
+            if (modelData.models) {
+                modelData.models.forEach((model) => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent =  model; // `${model.name} - ${model.description || ''}`;
+                    modelSelect.appendChild(option);
+                });
+            } else {
+                // add a placeholder option if no models are available
+                const option = document.createElement('option');
+                option.value = 0;
+                option.textContent = 'No model available for ' + modelId;
+                modelSelect.appendChild(option);
+            }
+        }
+    });
+}
 
+// Add system prompt button click event
 $('#bt_addSystemPrompt').on('click', function() {
     addSystemPrompt();
 });
@@ -109,7 +124,7 @@ $('.eqLogicDisplayCard').on('click', function() {
     }
     
     // Update model list when loading equipment
-    updateModelList();
+    updateModelSelect();
 });
 
 function addCmdToTable(_cmd) {
