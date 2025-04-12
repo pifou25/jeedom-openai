@@ -124,12 +124,15 @@ class openai extends eqLogic {
     }
 
     private function buildSystemPrompt($context) {
-        $systemPrompt = "You are a home automation assistant with access to the following information about the home:\n\n";
-        
+        $language = translate::getLanguage(); // Get Jeedom-configured language
+        $translations = json_decode(file_get_contents(dirname(__FILE__) . "/../../core/i18n/{$language}.json"), true);
+    
+        $systemPrompt = $translations['system_prompt_header'] . "\n\n";
+    
         foreach ($context as $object) {
-            $systemPrompt .= "Location: " . $object['name'] . "\n";
+            $systemPrompt .= $translations['location'] . ": " . $object['name'] . "\n";
             foreach ($object['equipments'] as $equipment) {
-                $systemPrompt .= "  Equipment: " . $equipment['name'] . "\n";
+                $systemPrompt .= "  " . $translations['equipment'] . ": " . $equipment['name'] . "\n";
                 foreach ($equipment['info'] as $info) {
                     $value = $info['value'];
                     $unit = !empty($info['unit']) ? ' ' . $info['unit'] : '';
@@ -138,11 +141,12 @@ class openai extends eqLogic {
             }
             $systemPrompt .= "\n";
         }
-        
-        $systemPrompt .= "Please use this information to provide relevant and contextual responses to questions about the home's status and automation.";
-        
+    
+        $systemPrompt .= $translations['system_prompt_footer'];
+    
         return $systemPrompt;
     }
+    
 /*
     public static function getAvailableModels() {
         $config = self::getModelsConfig();
