@@ -5,11 +5,8 @@ if (!isConnect('admin')) {
 $plugin = plugin::byId('openai');
 sendVarToJS('eqType', $plugin->getId());
 $eqLogics = eqLogic::byType($plugin->getId());
-
-// Load JSON configuration
-$jsonConfig = json_decode(file_get_contents(dirname(__FILE__) . '/../../plugin_info/openai_models.json'), true);
-sendVarToJS('jsonConfig', $jsonConfig);
 ?>
+
 <div class="row row-overflow">
     <div class="col-xs-12 eqLogicThumbnailDisplay">
         <legend><i class="fas fa-cog"></i> {{Gestion}}</legend>
@@ -96,50 +93,24 @@ sendVarToJS('jsonConfig', $jsonConfig);
                                 <label class="checkbox-inline"><input type="checkbox" class="eqLogicAttr" data-l1key="isVisible" checked/>{{Visible}}</label>
                             </div>
                         </div>
-
                         <div class="form-group">
-                            <label class="col-sm-3 control-label">{{Implementation}}</label>
+                            <label class="col-sm-3 control-label">{{Modèle}}</label>
                             <div class="col-sm-3">
-                                <select class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="implementation">
+                                <select class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="model">
+                                    <?php
+                                    foreach (openai::getAvailableModels() as $model) {
+                                        echo '<option value="' . $model['id'] . '">' . $model['name'] . ' - ' . $model['description'] . '</option>';
+                                    }
+                                    ?>
                                 </select>
                             </div>
                         </div>
-
-                        <div class="form-group">
-                            <label class="col-sm-3 control-label">{{URL de l'API}}</label>
-                            <div class="col-sm-3">
-                                <input type="text" class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="api_url" placeholder="https://api.openai.com/v1/chat/completions" readonly/>
-                            </div>
-                        </div>
-
                         <div class="form-group">
                             <label class="col-sm-3 control-label">{{Clé API}}</label>
                             <div class="col-sm-3">
                                 <input type="text" class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="api_key" placeholder="sk-..."/>
                             </div>
                         </div>
-
-                        <div class="form-group">
-                            <label class="col-sm-3 control-label">{{Modèle}}</label>
-                            <div class="col-sm-3">
-                                <select class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="model">
-                                    <!-- Will be populated dynamically -->
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="col-sm-3 control-label">{{Prompts système}}</label>
-                            <div class="col-sm-6">
-                                <div id="div_systemPrompts">
-                                    <?php
-                                    // This will be populated by JavaScript
-                                    ?>
-                                </div>
-                                <a class="btn btn-success btn-sm" id="bt_addSystemPrompt"><i class="fas fa-plus-circle"></i> {{Ajouter un prompt système}}</a>
-                            </div>
-                        </div>
-
                         <div class="form-group">
                             <label class="col-sm-3 control-label">{{Objets à inclure}}</label>
                             <div class="col-sm-6">
@@ -153,7 +124,6 @@ sendVarToJS('jsonConfig', $jsonConfig);
                                 <span class="help-block">{{Sélectionnez les objets dont vous souhaitez inclure les informations dans le prompt}}</span>
                             </div>
                         </div>
-
                         <div class="form-group">
                             <label class="col-sm-3 control-label">{{Commandes de sortie}}</label>
                             <div class="col-sm-6">
