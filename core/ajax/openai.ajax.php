@@ -15,7 +15,7 @@ try {
         if (!is_object($openai)) {
             throw new Exception(__('OpenAI eqLogic non trouvé : ', __FILE__) . init('id'));
         }
-        ajax::success($openai->getAvailableModels());
+        ajax::success($openai->getModelsConfig());
     }
 
     throw new Exception(__('Aucune méthode correspondante à', __FILE__) . ' : ' . init('action'));

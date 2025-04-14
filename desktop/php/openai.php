@@ -5,9 +5,10 @@ if (!isConnect('admin')) {
 $plugin = plugin::byId('openai');
 sendVarToJS('eqType', $plugin->getId());
 $eqLogics = eqLogic::byType($plugin->getId());
-?>
+$jsConfig = openai::getModelsConfig();
+sendVarToJS('jsonConfig', $jsConfig);
 
-<div class="row row-overflow">
+?><div class="row row-overflow">
     <div class="col-xs-12 eqLogicThumbnailDisplay">
         <legend><i class="fas fa-cog"></i> {{Gestion}}</legend>
         <div class="eqLogicThumbnailContainer">
@@ -93,24 +94,57 @@ $eqLogics = eqLogic::byType($plugin->getId());
                                 <label class="checkbox-inline"><input type="checkbox" class="eqLogicAttr" data-l1key="isVisible" checked/>{{Visible}}</label>
                             </div>
                         </div>
+
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">{{Implémentation}}</label>
+                            <div class="col-sm-2">
+                                <select class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="implementation">
+                                    <?php foreach ($jsConfig['openapis'] as $key => $value) {
+                                        echo sprintf('<option value="%s">%s - %s</option>', $key, $value['name'], $value['description']);
+                                    } ?>
+                                </select>
+                            </div>
+                            <div class="col-sm-3">
+                                <span class="help-block">{{Sélectionnez une implémentation OpenAI disponible.}}</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">{{API URL}}</label>
+                            <div class="col-sm-3">
+                                <input type="text" class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="api_url" disabled />
+                            </div>
+                        </div>
+
                         <div class="form-group">
                             <label class="col-sm-3 control-label">{{Modèle}}</label>
                             <div class="col-sm-3">
-                                <select class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="model">
-                                    <?php
-                                    foreach (openai::getAvailableModels() as $model) {
-                                        echo '<option value="' . $model['id'] . '">' . $model['name'] . ' - ' . $model['description'] . '</option>';
-                                    }
-                                    ?>
-                                </select>
+                                <select id="model-select" class="eqLogicAttr form-control"></select>
+                            </div>
+                            <div class="col-sm-2">
+                                <input type="text" class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="model" disabled />
                             </div>
                         </div>
+
                         <div class="form-group">
                             <label class="col-sm-3 control-label">{{Clé API}}</label>
                             <div class="col-sm-3">
-                                <input type="text" class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="api_key" placeholder="sk-..."/>
+                                <input type="text" class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="api_key" placeholder="{{Entrez votre clé API...}}" required/>
                             </div>
                         </div>
+                        
+                        <div class="form-group">
+                            <label class="col-sm-3 control-label">{{Prompts système}}</label>
+                            <div class="col-sm-6">
+                                <input type="text" class="eqLogicAttr form-control" data-l1key="configuration" data-l2key="system_prompts" readonly />
+                                <div id="div_systemPrompts">
+                                    <!-- // This will be populated by JavaScript -->
+                                </div>
+                                <a class="btn btn-success btn-sm roundedRight bt_reloadSystemPrompt"><i class="fa fa-anchor"></i></a>
+                                <a class="btn btn-success btn-sm" id="bt_addSystemPrompt"><i class="fas fa-plus-circle"></i> {{Ajouter un prompt système}}</a>
+                            </div>
+                        </div>
+
                         <div class="form-group">
                             <label class="col-sm-3 control-label">{{Objets à inclure}}</label>
                             <div class="col-sm-6">
@@ -124,6 +158,7 @@ $eqLogics = eqLogic::byType($plugin->getId());
                                 <span class="help-block">{{Sélectionnez les objets dont vous souhaitez inclure les informations dans le prompt}}</span>
                             </div>
                         </div>
+
                         <div class="form-group">
                             <label class="col-sm-3 control-label">{{Commandes de sortie}}</label>
                             <div class="col-sm-6">
@@ -134,6 +169,7 @@ $eqLogics = eqLogic::byType($plugin->getId());
                                     }
                                     ?>
                                 </select>
+                                <span class="help-block">{{Sélectionnez un objet pour envoyer le message de réponse}}</span>
                             </div>
                         </div>
                     </fieldset>
@@ -150,6 +186,7 @@ $eqLogics = eqLogic::byType($plugin->getId());
                         </tr>
                     </thead>
                     <tbody>
+                        <!-- // liste des commandes et infos -->
                     </tbody>
                 </table>
             </div>
