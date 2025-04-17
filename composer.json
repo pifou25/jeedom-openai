@@ -1,0 +1,21 @@
+{
+    "name": "pifou25/jeedom_openai",
+    "description": "Plugin Jeedom pour les API compatibles openAI",
+    "type": "library",
+    "autoload": {
+        "psr-4": {
+            "Pifou25\\JeedomOpenai\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "pifou25",
+            "email": "nicolas_gras@hotmail.com"
+        }
+    ],
+    "require": {
+        "guzzlehttp/guzzle": "^7.9",
+        "nyholm/psr7": "^1.8",
+        "php-http/guzzle7-adapter": "^1.1"
+    }
+}

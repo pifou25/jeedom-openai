@@ -1,2 +1,5 @@
 node_modules
+
+/vendor/
+# /generated/generated-php-client
 core/client
