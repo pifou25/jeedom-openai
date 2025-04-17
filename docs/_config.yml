@@ -1,0 +1,15 @@
+# github page deployment configuration
+
+# set theme
+theme: jekyll-theme-cayman
+# set title
+title: OpenAI Plugin Documentation
+# set author
+author: OpenAI
+# set description
+description: OpenAI Plugin Documentation
+
+# set markdown processor
+markdown: kramdown
+# set base url
+baseurl: /jeedom-openai
