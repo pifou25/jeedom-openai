@@ -15,7 +15,15 @@ try {
         if (!is_object($openai)) {
             throw new Exception(__('OpenAI eqLogic non trouvé : ', __FILE__) . init('id'));
         }
-        ajax::success($openai->getModelsConfig());
+        $result = $openai->getModelsConfig();
+        try {
+            $models = $openai->getModels();
+        } catch (Exception $e) {
+            log::add('openai', 'info', 'Erreur lors de la récupération des modèles : ' . $e->getMessage());
+            $models = [];
+        }
+        $result['models'] = array_merge($result['models'], $models);
+        ajax::success( $result);
     }
 
     throw new Exception(__('Aucune méthode correspondante à', __FILE__) . ' : ' . init('action'));

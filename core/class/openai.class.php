@@ -33,6 +33,7 @@ class openai extends eqLogic {
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new Exception(__('Invalid JSON configuration file', __FILE__));
         }
+
         return $config;
     }
 
@@ -160,6 +161,9 @@ class openai extends eqLogic {
     private function getJeedomContext() {
         $context = array();
         $includedObjects = $this->getConfiguration('included_objects', array());
+        if(!is_array($includedObjects)) {
+            $includedObjects = array($includedObjects);
+        }
         
         foreach ($includedObjects as $objectId) {
             $object = jeeObject::byId($objectId);

@@ -1,0 +1,7 @@
+{
+    "composer" : {
+      "guzzlehttp/guzzle"  : {},
+      "php-http/guzzle7-adapter" : { "version" : "^7.0" },
+      "nyholm/psr7" : {}
+    }
+  }
