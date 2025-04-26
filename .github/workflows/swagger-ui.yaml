@@ -1,0 +1,32 @@
+name: Deploy Swagger on GitHub Pages
+
+on:
+  push:
+    branches:
+      - master
+      - swagger
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # copy openai.yaml to root
+      - name: Copy openai.yaml to root
+        run: |
+          cp plugin_info/openapi.yaml ./openai.yaml
+
+      # This action generates a Swagger UI from the OpenAPI spec file and deploys it to GitHub Pages.
+      - name: Generate Swagger UI
+        uses: Legion2/swagger-ui-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          output: swagger-ui
+          spec-file: ./openai.yaml
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.PAGES_PAT }}
+          publish_dir: swagger-ui
