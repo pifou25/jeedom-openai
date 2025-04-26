@@ -2,6 +2,15 @@
 
 require_once dirname(__FILE__) . '/../../../../core/php/core.inc.php';
 
+use jeedom\plugins\openai\core\client\lib\Api\ChatApi;
+use jeedom\plugins\openai\core\client\lib\Configuration;
+use jeedom\plugins\openai\core\client\lib\ApiException;
+use jeedom\plugins\openai\core\client\lib\Model\CreateChatCompletionRequest;
+
+// use jeedom\plugins\openai\core\class\OpenAIWrapper;
+use Http\Adapter\Guzzle7\Client as GuzzleAdapter;
+use Nyholm\Psr7\Factory\Psr17Factory;
+
 class openai extends eqLogic {
 
     const OPENAI_RESPONSE_JSON = '{"status" : "ok|error", "message" : "message", "actions" : [ { "action" : "action", "status" : "ok|error", "message" : "message", "payload" : { }, "timestamp" : "timestamp" } ]}';
@@ -25,6 +34,7 @@ class openai extends eqLogic {
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new Exception(__('Invalid JSON configuration file', __FILE__));
         }
+
         return $config;
     }
 
@@ -152,6 +162,9 @@ class openai extends eqLogic {
     private function getJeedomContext() {
         $context = array();
         $includedObjects = $this->getConfiguration('included_objects', array());
+        if(!is_array($includedObjects)) {
+            $includedObjects = array($includedObjects);
+        }
         
         foreach ($includedObjects as $objectId) {
             $object = jeeObject::byId($objectId);
@@ -190,6 +203,45 @@ class openai extends eqLogic {
     }
 
     /**
+     * Build the open AI configuration
+     * This function retrieves the OpenAI API key and model ID from the configuration.
+     */
+    public function getOpenAIClient() {
+
+        $apiKey = $this->getConfiguration('api_key');
+
+        if (empty($apiKey)) {
+            throw new Exception(__('API Key not configured', __FILE__));
+        }
+
+        $implementation = $this->getConfiguration('implementation');
+        $modelConfig = $this->getModelConfig($implementation);
+        if (empty($modelConfig)) {
+            throw new Exception(__('Model configuration not found', __FILE__));
+        }
+        $client = new OpenAICompatibleClient(
+            $apiKey,
+            $modelConfig['url'],
+            'access_token' // Mistral fonctionne aussi avec Bearer
+        );
+        return $client;
+    }
+
+    /**
+     * list of all available models
+     * 
+     */
+    public function getModels() {
+        $client = $this->getOpenAIClient();
+        $models = $client->listModels();
+        if (empty($models)) {
+            throw new Exception(__('No models found', __FILE__));
+        }
+        log::add('openai', 'debug', "Models: " . print_r($models, true));
+        return $models;
+    }
+
+    /**
      * Build the system prompt for OpenAI
      * This function constructs the system prompt for OpenAI by including
      * the context of the Jeedom home automation system.
@@ -200,9 +252,12 @@ class openai extends eqLogic {
      * @param array $context The context of the Jeedom home automation system
      * @return array [role => system, content => system prompt]
      */
-    private function buildSystemPrompt($context) {
+    public function buildSystemPrompt() {
 
+        // array of user-defined system prompts
         $systemPrompt = $this->getConfiguration('prompt');
+        // Get Jeedom context and build system prompt
+        $context = $this->getJeedomContext();
         $result = '';
         foreach ($context as $object) {
             $result .= self::getTranslations( "location") .": " . $object['name'] . "\n";
@@ -224,83 +279,9 @@ class openai extends eqLogic {
                 'content' => $message
             );
         }
-
-        return $systemPrompt;
+      
+        return $systemMessages;
     }
-
-    /**
-     * Send a prompt to OpenAI API and return the response
-     * @param string $prompt The user prompt to send
-     * @return string The response from OpenAI
-     * @throws Exception If there is an error with the API request
-     */
-    public function sendToOpenAI($prompt) {
-        $apiKey = $this->getConfiguration('api_key');
-        $modelId = $this->getConfiguration('model');
-        $implementation = $this->getConfiguration('implementation');
-
-        if (empty($apiKey)) {
-            throw new Exception(__('API Key not configured', __FILE__));
-        }
-
-        if (empty($modelId)) {
-            throw new Exception(__('Model not configured', __FILE__));
-        }
-
-        $modelConfig = $this->getModelConfig($implementation);
-        $apiUrl = $modelConfig['url'];
-
-        // Get Jeedom context and build system prompt
-        $context = $this->getJeedomContext();
-        $systemPrompt = $this->buildSystemPrompt($context);
-        $messages = [];
-        foreach ($systemPrompt as $message) {
-            $messages[] = array(
-                'role' => 'system',
-                'content' => $message
-            );
-        }
-        $messages[] = array(
-            'role' => 'user',
-            'content' => $prompt
-        );
-
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $apiUrl);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-            'Content-Type: application/json',
-            'Authorization: Bearer ' . $apiKey
-        ));
-
-        $data = array(
-            'model' => $modelId,
-            'messages' => $messages
-        );
-
-        log::add('openai', 'debug', 'Sending prompt to OpenAI: ' . json_encode($data));
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        $response = curl_exec($ch);
-        
-        if (curl_errno($ch)) {
-            throw new Exception(curl_error($ch));
-        }
-        
-        curl_close($ch);
-        $responseData = json_decode($response, true);
-        log::add('openai', 'debug', 'OpenAI response: ' . json_encode($responseData));
-
-        if (isset($responseData['choices'][0]['message']['content'])) {
-            return $responseData['choices'][0]['message']['content'];
-        } else if (isset($responseData['error'])) {
-            return $responseData['error']['message'];
-            // throw new Exception(__('OpenAI API error: ', __FILE__) . $responseData['error']['message']);
-        } else {
-            throw new Exception(__('Invalid response from OpenAI', __FILE__));
-        }
-    }
-
 }
 
 class openaiCmd extends cmd {
@@ -312,14 +293,39 @@ class openaiCmd extends cmd {
         $eqLogic = $this->getEqLogic();
         
         if ($this->getLogicalId() == 'sendPrompt') {
+
             $prompt = $_options['message'];
             $promptCmd = $eqLogic->getCmd(null, 'prompt');
             if (is_object($promptCmd)) {
                 $promptCmd->event($prompt);
             }
+            
+            $client = $eqLogic->getOpenAIClient();
+            $systemPrompt = $eqLogic->buildSystemPrompt();
+            $modelId = $eqLogic->getConfiguration('model');
+
+            $request = array( $systemPrompt,
+                array(
+                    'role' => 'user',
+                    'content' => $prompt
+                )
+            );
+            log::add('openai', 'debug', "✅ Question to $modelId :\n" . print_r( $request, true));
+            // the complete request with model and list of system and user prompts
+            $response = $client->sendChatMessage( $modelId, $request);
 
             try {
-                $response = $eqLogic->sendToOpenAI($prompt);
+                $result = $client->createChatCompletion($request);
+                log::add('openai', 'debug', "✅ Réponse :\n" . $result->__toString());
+            } catch (ApiException $e) {
+                log::add('openai', 'debug', "❌ Erreur API : " . $e->getMessage() . "\n" . $e->getResponseBody());
+            }
+
+            try {
+                // $response = $this->sendToOpenAI($messages);
+                // process the response
+                $result = $this->processResponse($response);
+
                 $responseCmd = $eqLogic->getCmd(null, 'response');
                 if (is_object($responseCmd)) {
                     $responseCmd->event($response);
@@ -337,5 +343,99 @@ class openaiCmd extends cmd {
                 log::add('openai', 'error', $e->getMessage());
             }
         }
+    }
+    
+    /**
+     * Send a prompt to OpenAI API and return the response
+     * @param string $prompt The systems and user prompt to send
+     * @return string The response from OpenAI
+     * @throws Exception If there is an error with the API request
+     */
+    private function sendToOpenAI($prompt, $apiUrl, $apiKey) {
+
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $apiUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $apiKey
+        ));
+
+        $data = array(
+            'model' => $modelId,
+            'messages' => $messages
+        );
+
+        $encoded = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_NUMERIC_CHECK);
+        log::add('openai', 'debug', "Sending prompt to $apiUrl: $encoded");
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $encoded);
+        $response = curl_exec($ch);
+        
+        if (curl_errno($ch)) {
+            throw new Exception(curl_error($ch));
+        }
+        
+        curl_close($ch);
+        $responseData = json_decode($response, true);
+        log::add('openai', 'debug', 'OpenAI response: ' . json_encode($responseData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_NUMERIC_CHECK));
+
+        if (isset($responseData['choices'][0]['message']['content'])) {
+            return $responseData['choices'][0]['message']['content'];
+        } else if (isset($responseData['error'])) {
+            return $responseData['error']['message'];
+            // throw new Exception(__('OpenAI API error: ', __FILE__) . $responseData['error']['message']);
+        } else {
+            throw new Exception(__('Invalid response from OpenAI', __FILE__));
+        }
+    }
+
+    /**
+     * process the response from OpenAI
+     * @param string $response The response from OpenAI
+     * @return string The processed response
+     */
+    private function processResponse($response) {
+        $json = json_decode( $response, true, 512, JSON_BIGINT_AS_STRING);
+        if(is_array($json)) {
+
+            // traiter le message de retour
+            $message = $json['message'];
+            $status = $json['status'];
+            if ($status == 'error') {
+                return $message;
+            }
+
+            if ($status == 'ok') {
+                $message = $json['actions'][0]['message'];
+
+                // traiter les actions de retour
+                foreach ($json['actions'] as $action) {
+                    $actionCmd = cmd::getById(null, $action['action']);
+                    if (is_object($actionCmd)) {
+                        $actionCmd->event($action['message']);
+                    } else {
+                        log::add('openai', 'warn', 'Action command not found: ' . $action['action']);
+                    }
+                }
+
+                if (isset($message['payload'])) {
+                    $payload = $message['payload'];
+                    foreach ($payload as $key => $value) {
+                        if (is_array($value)) {
+                            $json[$key] = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_NUMERIC_CHECK);
+                        } else {
+                            $json[$key] = $value;
+                        }
+                    }
+                }
+            }
+
+            return $json;
+        } else {
+            // message OK de l'IA mais pas au format JSON
+            return $response;
+        }
+        return $response;
     }
 }
