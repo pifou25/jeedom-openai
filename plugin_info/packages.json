@@ -1,0 +1,5 @@
+{
+  "composer" : {
+    "openai-php/client" : { "version" : "^0.10.3" }
+  }
+}
