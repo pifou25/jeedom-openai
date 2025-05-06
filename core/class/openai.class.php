@@ -50,10 +50,10 @@ class openai extends eqLogic {
      * get plugin translations
      * @return array
      */
-    public static function getTranslations( $key = '') {
+    public static function getTranslations($key = '') {
         static $translations = null;
         if ($translations == null) {
-            $language = translate::getLanguage(); // Get Jeedom-configured language
+            $language = translate::getLanguage();
             $translations = json_decode(file_get_contents(dirname(__FILE__) . "/../../core/i18n/{$language}.json"), true);
             if (json_last_error() !== JSON_ERROR_NONE) {
                 throw new Exception(__('Invalid JSON translation file', __FILE__));
@@ -62,7 +62,6 @@ class openai extends eqLogic {
         if (!empty($key)) {
             return isset($translations[$key]) ? $translations[$key] : $key;
         }
-        // Return all translations
         return $translations;
     }
     
@@ -131,7 +130,7 @@ class openai extends eqLogic {
             $sendPrompt->setSubType('message');
             $sendPrompt->save();
         }
-        // set default prompt in configuration
+        
         if (empty($this->getConfiguration('prompt'))) {
             $defaultPrompt[] = self::getTranslations('system_prompt_header');
             $defaultPrompt[] = self::OPENAI_RESPONSE_JSON;
@@ -141,15 +140,10 @@ class openai extends eqLogic {
     }
 
     /**
-     * Get Jeedom context for the OpenAI model for configured included_objects
-     * This function retrieves the context of the Jeedom home automation system
-     * and formats it for the OpenAI model.
-     * It includes information about the objects and their associated equipment.
-     * The context is structured as an array of objects, each containing
-     * the name of the object and an array of equipment with their information.
+     * Get Jeedom context for the OpenAI model
      * @return array
      */
-    private function getJeedomContext() {
+    public function getJeedomContext() {
         $context = array();
         $includedObjects = $this->getConfiguration('included_objects', array());
         
@@ -190,117 +184,26 @@ class openai extends eqLogic {
     }
 
     /**
-     * Build the system prompt for OpenAI
-     * This function constructs the system prompt for OpenAI by including
-     * the context of the Jeedom home automation system.
-     * It formats the information about the objects and their associated
-     * equipment in a structured manner.
-     * The prompt is built by iterating through the context and appending
-     * the relevant information to the system prompt string.
-     * @param array $context The context of the Jeedom home automation system
-     * @return array [role => system, content => system prompt]
-     */
-    private function buildSystemPrompt($context) {
-
-        $systemPrompt = $this->getConfiguration('prompt');
-        $result = '';
-        foreach ($context as $object) {
-            $result .= self::getTranslations( "location") .": " . $object['name'] . "\n";
-            foreach ($object['equipments'] as $equipment) {
-                $result .= self::getTranslations( "equipement") .": " . $equipment['name'] . "\n";
-                foreach ($equipment['info'] as $info) {
-                    $value = $info['value'];
-                    $unit = !empty($info['unit']) ? ' ' . $info['unit'] : '';
-                    $result .= "    - " . $info['name'] . ": " . $value . $unit . "\n";
-                }
-            }
-            $result .= "\n";
-        }
-        $systemPrompt[] = $result;
-
-        foreach ($systemPrompt as $message) {
-            $systemMessages[] = array(
-                'role' => 'system',
-                'content' => $message
-            );
-        }
-
-        return $systemPrompt;
-    }
-
-    /**
      * Send a prompt to OpenAI API and return the response
      * @param string $prompt The user prompt to send
      * @return string The response from OpenAI
      * @throws Exception If there is an error with the API request
      */
     public function sendToOpenAI($prompt) {
-        $apiKey = $this->getConfiguration('api_key');
-        $modelId = $this->getConfiguration('model');
-        $implementation = $this->getConfiguration('implementation');
-
-        if (empty($apiKey)) {
-            throw new Exception(__('API Key not configured', __FILE__));
-        }
-
-        if (empty($modelId)) {
-            throw new Exception(__('Model not configured', __FILE__));
-        }
-
-        $modelConfig = $this->getModelConfig($implementation);
-        $apiUrl = $modelConfig['url'];
-
-        // Get Jeedom context and build system prompt
-        $context = $this->getJeedomContext();
-        $systemPrompt = $this->buildSystemPrompt($context);
-        $messages = [];
-        foreach ($systemPrompt as $message) {
-            $messages[] = array(
-                'role' => 'system',
-                'content' => $message
-            );
-        }
-        $messages[] = array(
-            'role' => 'user',
-            'content' => $prompt
-        );
-
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $apiUrl);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-            'Content-Type: application/json',
-            'Authorization: Bearer ' . $apiKey
-        ));
-
-        $data = array(
-            'model' => $modelId,
-            'messages' => $messages
-        );
-
-        log::add('openai', 'debug', 'Sending prompt to OpenAI: ' . json_encode($data));
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        $response = curl_exec($ch);
-        
-        if (curl_errno($ch)) {
-            throw new Exception(curl_error($ch));
-        }
-        
-        curl_close($ch);
-        $responseData = json_decode($response, true);
-        log::add('openai', 'debug', 'OpenAI response: ' . json_encode($responseData));
-
-        if (isset($responseData['choices'][0]['message']['content'])) {
-            return $responseData['choices'][0]['message']['content'];
-        } else if (isset($responseData['error'])) {
-            return $responseData['error']['message'];
-            // throw new Exception(__('OpenAI API error: ', __FILE__) . $responseData['error']['message']);
-        } else {
-            throw new Exception(__('Invalid response from OpenAI', __FILE__));
+        try {
+            $api = new openaiApi($this);
+            $response = $api->processJeedomRequest($prompt);
+            
+            if ($response['status'] === 'error') {
+                throw new Exception($response['message']);
+            }
+            
+            return $response['content'];
+        } catch (Exception $e) {
+            log::add('openai', 'error', 'Error sending prompt to OpenAI: ' . $e->getMessage());
+            throw $e;
         }
     }
-
 }
 
 class openaiCmd extends cmd {
@@ -325,7 +228,6 @@ class openaiCmd extends cmd {
                     $responseCmd->event($response);
                 }
 
-                // Send response to configured output commands
                 $outputCommands = $eqLogic->getConfiguration('output_commands', array());
                 foreach ($outputCommands as $cmdId) {
                     $cmd = cmd::byId($cmdId);
