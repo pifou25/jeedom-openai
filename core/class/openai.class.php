@@ -58,10 +58,10 @@ class openai extends eqLogic {
      * get plugin translations
      * @return array
      */
-    public static function getTranslations( $key = '') {
+    public static function getTranslations($key = '') {
         static $translations = null;
         if ($translations == null) {
-            $language = translate::getLanguage(); // Get Jeedom-configured language
+            $language = translate::getLanguage();
             $translations = json_decode(file_get_contents(dirname(__FILE__) . "/../../core/i18n/{$language}.json"), true);
             if (json_last_error() !== JSON_ERROR_NONE) {
                 throw new Exception(__('Invalid JSON translation file', __FILE__));
@@ -70,7 +70,6 @@ class openai extends eqLogic {
         if (!empty($key)) {
             return isset($translations[$key]) ? $translations[$key] : $key;
         }
-        // Return all translations
         return $translations;
     }
     
@@ -139,7 +138,7 @@ class openai extends eqLogic {
             $sendPrompt->setSubType('message');
             $sendPrompt->save();
         }
-        // set default prompt in configuration
+        
         if (empty($this->getConfiguration('prompt'))) {
             $defaultPrompt[] = self::getTranslations('system_prompt_header');
             $defaultPrompt[] = self::OPENAI_RESPONSE_JSON;
@@ -149,15 +148,10 @@ class openai extends eqLogic {
     }
 
     /**
-     * Get Jeedom context for the OpenAI model for configured included_objects
-     * This function retrieves the context of the Jeedom home automation system
-     * and formats it for the OpenAI model.
-     * It includes information about the objects and their associated equipment.
-     * The context is structured as an array of objects, each containing
-     * the name of the object and an array of equipment with their information.
+     * Get Jeedom context for the OpenAI model
      * @return array
      */
-    private function getJeedomContext() {
+    public function getJeedomContext() {
         $context = array();
         $includedObjects = $this->getConfiguration('included_objects', array());
         
