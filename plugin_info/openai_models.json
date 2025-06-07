@@ -3,7 +3,7 @@
     "gpt-4": {
       "name": "GPT-4",
       "url": "https://api.openai.com/v1/",
-      "chat": "chat/completions",
+      "endpoint": "chat/completions",
       "description": "Most capable GPT model for complex tasks",
       "models": [
         "gpt-4",
@@ -15,7 +15,7 @@
     "gpt-4-turbo": {
       "name": "GPT-4 Turbo",
       "url": "https://api.openai.com/v1/",
-      "chat": "chat/completions",
+      "endpoint": "chat/completions",
       "description": "More capable, cost-effective and with newer knowledge",
       "models": [
         "gpt-4-1106-preview",
@@ -25,7 +25,7 @@
     "gpt-3.5-turbo": {
       "name": "GPT-3.5 Turbo",
       "url": "https://api.openai.com/v1/",
-      "chat": "chat/completions",
+      "endpoint": "chat/completions",
       "description": "Good balance between capability and cost",
       "models": [
         "gpt-3.5-turbo",
@@ -36,7 +36,7 @@
     "claude-2": {
       "name": "Claude 2",
       "url": "https://api.anthropic.com/v1/",
-      "chat": "complete",
+      "endpoint": "complete",
       "description": "Anthropic's most capable model",
       "models": [
         "claude-2",
@@ -46,12 +46,33 @@
     "mistral": {
       "name": "Mistral AI",
       "url": "https://api.mistral.ai/v1/",
-      "chat": "chat/completions",
+      "endpoint": "chat/completions",
       "description": "Mistral French capable IA",
       "models": [
         "mistral-tiny",
         "mistral-small",
         "mistral-medium"
+      ]
+    },
+    "llama-3": {
+      "name": "Llama 3",
+      "url": "https://api.llama.com/v1/",
+      "endpoint": "chat/completions",
+      "description": "Meta's Llama 3 model",
+      "models": [
+        "llama-3-7b",
+        "llama-3-13b",
+        "llama-3-70b"
+      ]
+    },
+    "gemini": {
+      "name": "Gemini",
+      "url": "https://api.gemini.com/v1beta/openapi/",
+      "endpoint": "chat/completions",
+      "description": "Google's Gemini model",
+      "models": [
+        "gemini-1.5-flash",
+        "gemini-2.0-flash"
       ]
     }
   }
