@@ -14,84 +14,23 @@ class openai extends eqLogic {
 
     const OPENAI_RESPONSE_JSON = '{"status" : "ok|error", "message" : "message", "actions" : [ { "action" : "action", "status" : "ok|error", "message" : "message", "payload" : { }, "timestamp" : "timestamp" } ]}';
 
-    public static $_widgetPossibility = array(
+    private $apiKey;
+    private $modelId;
+    private $implementation;
+
+    public static $_widgetPossibility = [
         'custom' => true,
         'custom::layout' => false,
-        'parameters' => array(),
-    );
-
-    /**
-     * get models configuration from JSON file
-     * @return array
-     */
-    public static function getModelsConfig() {
-        $jsonFile = dirname(__FILE__) . '/../../plugin_info/openai_models.json';
-        if (!file_exists($jsonFile)) {
-            throw new Exception(__('Configuration file not found', __FILE__));
-        }
-        $config = json_decode(file_get_contents($jsonFile), true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new Exception(__('Invalid JSON configuration file', __FILE__));
-        }
-        return $config;
-    }
-
-    /**
-     * Get compatible message commands for OpenAI response
-     * @return array
-     */
-    public static function getCompatibleMessageCommands() {
-        $return = array();
-        foreach (cmd::byTypeSubType('action', 'message') as $cmd) {
-            $eqLogic = $cmd->getEqLogic();
-            if ($eqLogic->getEqType_name() != 'openai') {
-                $return[] = array(
-                    'value' => $cmd->getId(),
-                    'text' => $eqLogic->getName() . ' - ' . $cmd->getName()
-                );
-            }
-        }
-        return $return;
-    }
-
-    /**
-     * get plugin translations
-     * @return array
-     */
-    public static function getTranslations($key = '') {
-        static $translations = null;
-        if ($translations == null) {
-            $language = translate::getLanguage();
-            $translations = json_decode(file_get_contents(dirname(__FILE__) . "/../../core/i18n/{$language}.json"), true);
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                throw new Exception(__('Invalid JSON translation file', __FILE__));
-            }
-        }
-        if (!empty($key)) {
-            return isset($translations[$key]) ? $translations[$key] : $key;
-        }
-        return $translations;
-    }
+        'parameters' => [],
+    ];
     
-    /**
-     * get model configuration
-     * @param string $modelId
-     * @return array
-     * @throws Exception
-     */
-    private function getModelConfig($modelId) {
-        $config = self::getModelsConfig();
-        if (!isset($config['openapis'][$modelId])) {
-            throw new Exception(__("Model configuration not found: $modelId", __FILE__));
-        }
-        return $config['openapis'][$modelId];
-    }
-
     public static function dependancy_info() {
-        $return = array();
-        $return['log'] = 'openai_dep';
-        $return['state'] = 'ok';
-        return $return;
+        return [
+            'log' => log::getPathToLog(__CLASS__ . '_dep'),
+            'state' => 'ok',
+            'progress' => 100,
+            'message' => __('Dependency check completed', __FILE__)
+        ];
     }
 
     public static function dependancy_install() {
@@ -140,55 +79,11 @@ class openai extends eqLogic {
         }
         
         if (empty($this->getConfiguration('prompt'))) {
-            $defaultPrompt[] = self::getTranslations('system_prompt_header');
+            $defaultPrompt[] = OpenAiHelper::getTranslations('system_prompt_header');
             $defaultPrompt[] = self::OPENAI_RESPONSE_JSON;
             $this->setConfiguration('prompt', $defaultPrompt);
             $this->save();
         }
-    }
-
-    /**
-     * Get Jeedom context for the OpenAI model
-     * @return array
-     */
-    public function getJeedomContext() {
-        $context = array();
-        $includedObjects = $this->getConfiguration('included_objects', array());
-        
-        foreach ($includedObjects as $objectId) {
-            $object = jeeObject::byId($objectId);
-            if (!is_object($object)) continue;
-
-            $objectData = array(
-                'name' => $object->getName(),
-                'equipments' => array()
-            );
-
-            foreach ($object->getEqLogic() as $eqLogic) {
-                $eqData = array(
-                    'name' => $eqLogic->getName(),
-                    'info' => array()
-                );
-
-                foreach ($eqLogic->getCmd('info') as $cmd) {
-                    $eqData['info'][] = array(
-                        'name' => $cmd->getName(),
-                        'value' => $cmd->execCmd(),
-                        'unit' => $cmd->getUnite()
-                    );
-                }
-
-                if (!empty($eqData['info'])) {
-                    $objectData['equipments'][] = $eqData;
-                }
-            }
-
-            if (!empty($objectData['equipments'])) {
-                $context[] = $objectData;
-            }
-        }
-
-        return $context;
     }
 
     /**
@@ -197,22 +92,18 @@ class openai extends eqLogic {
      */
     public function getOpenAIClient() {
 
-        $apiKey = $this->getConfiguration('api_key');
-        $modelId = $this->getConfiguration('model');
-
-        if (empty($apiKey)) {
+        if (empty($this->apiKey)) {
             throw new Exception(__('API Key not configured', __FILE__));
         }
 
-        if (empty($modelId)) {
+        if (empty($this->modelId)) {
             throw new Exception(__('Model not configured', __FILE__));
         }
 
-        $implementation = $this->getConfiguration('implementation');
-        $modelConfig = $this->getModelConfig($implementation);
+        $modelConfig = OpenAiHelper::getModelConfig( $this->implementation);
 
         $config = Configuration::getDefaultConfiguration()
-            ->setApiKey('Authorization', 'Bearer ' . $apiKey)
+            ->setApiKey('Authorization', 'Bearer ' . $this->apiKey)
             // set openAI API URL
             ->setHost($modelConfig['url'])
             // set openAI API endpoint
@@ -222,7 +113,7 @@ class openai extends eqLogic {
             $config
         );
 
-        return $$client;
+        return $client;
     }
 
     /**
@@ -239,36 +130,15 @@ class openai extends eqLogic {
     public function buildSystemPrompt() {
 
         // array of user-defined system prompts
-        $systemPrompt = $this->getConfiguration('prompt');
+        $systemPrompt = OpenAiHelper::buildSystemPrompt( $this->getConfiguration('prompt'));
         // Get Jeedom context and build system prompt
-        $context = $this->getJeedomContext();
-        $result = '';
-        foreach ($context as $object) {
-            $result .= self::getTranslations( "location") .": " . $object['name'] . "\n";
-            foreach ($object['equipments'] as $equipment) {
-                $result .= self::getTranslations( "equipement") .": " . $equipment['name'] . "\n";
-                foreach ($equipment['info'] as $info) {
-                    $value = $info['value'];
-                    $unit = !empty($info['unit']) ? ' ' . $info['unit'] : '';
-                    $result .= "    - " . $info['name'] . ": " . $value . $unit . "\n";
-                }
-            }
-            $result .= "\n";
-        }
-        $systemPrompt[] = $result;
-
-        foreach ($systemPrompt as $message) {
-            $systemMessages[] = array(
-                'role' => 'system',
-                'content' => $message
-            );
-        }
-      
-        return $systemMessages;
+        $context = OpenAiHelper::getJeedomContext( $this->getConfiguration('included_objects', array()));
+        return OpenAiHelper::buildSystemPrompt( context, 'system', $systemPrompt);
     }
 }
 
 class openaiCmd extends cmd {
+
     public function execute($_options = array()) {
         if ($this->getType() != 'action') {
             return;
