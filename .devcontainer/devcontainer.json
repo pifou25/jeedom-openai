@@ -1,0 +1,44 @@
+{
+  "name": "Jeedom Plugin Dev",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "..", // le contexte inclut ton plugin
+    "args": {
+      "PLUGIN_NAME": "${localWorkspaceFolderBasename}"
+    }
+  },
+
+  "remoteUser": "www-data",
+  "workspaceFolder": "/var/www/html/plugins/${localWorkspaceFolderBasename}",
+
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/var/www/html/plugins/${localWorkspaceFolderBasename},type=bind"
+  ],
+
+  "forwardPorts": [80, 9003],
+  "containerEnv": {
+    "JEEDOM_INSTALL_DIR": "/var/www/html",
+    "PLUGIN_NAME": "${localWorkspaceFolderBasename}",
+    "HOME": "/var/www"
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "bmewburn.vscode-intelephense-client",
+        "xdebug.php-debug",
+        "mehedidracula.php-namespace-resolver"
+      ],
+      "settings": {
+        "php.validate.executablePath": "/usr/bin/php",
+        "editor.tabSize": 4
+      }
+    }
+  },
+
+  "runArgs": [
+    "--init",
+    "--name", "jeedom-plugin-dev",
+    "--hostname", "jeedom-dev"
+  ]
+}
